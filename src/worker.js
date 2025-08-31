@@ -1,9 +1,9 @@
 /**
  * ===================================================================================
- * Cloudflare D1 Worker API for Portfolio Database (v4 - Final CORS Fix)
+ * Cloudflare D1 Worker API for Portfolio Database (v5 - Hardcoded CORS)
  *
- * This version corrects the missing 'env' parameter in response helpers,
- * ensuring CORS headers are present on all API responses, not just pre-flight.
+ * This version hardcodes the CORS headers directly in the script,
+ * removing the dependency on the .env file for ALLOWED_ORIGIN.
  * ===================================================================================
  */
 
@@ -11,7 +11,7 @@ export default {
     async fetch(request, env) {
         // Handle CORS pre-flight requests first.
         if (request.method === 'OPTIONS') {
-            return handleOptions(request, env);
+            return handleOptions(request);
         }
 
         try {
@@ -20,7 +20,7 @@ export default {
             if (writeMethods.includes(request.method)) {
                 const authHeader = request.headers.get('Authorization');
                 if (!authHeader || authHeader !== `Bearer ${env.SECRET_KEY}`) {
-                    return errorResponse('Unauthorized', 401, env);
+                    return errorResponse('Unauthorized', 401);
                 }
             }
 
@@ -30,10 +30,10 @@ export default {
                  return await handleApiRequest(url, request, env);
             }
 
-            return errorResponse('Route not found', 404, env);
+            return errorResponse('Route not found', 404);
 
         } catch (e) {
-            return errorResponse(e.message, 500, env);
+            return errorResponse(e.message, 500);
         }
     }
 };
@@ -48,14 +48,14 @@ async function handleApiRequest(url, request, env) {
     // GET /api/categories
     if (request.method === 'GET' && pathname === '/api/categories') {
         const { results } = await db.prepare("SELECT * FROM categories ORDER BY project_count DESC, category_name ASC").all();
-        return jsonResponse(results, 200, env);
+        return jsonResponse(results);
     }
     
     // POST /api/categories
     if (request.method === 'POST' && pathname === '/api/categories') {
         const { name } = await request.json();
         const result = await db.prepare("INSERT INTO categories (category_name) VALUES (?)").bind(name).run();
-        return jsonResponse(result, 201, env);
+        return jsonResponse(result, 201);
     }
     
     // GET /api/projects
@@ -63,7 +63,7 @@ async function handleApiRequest(url, request, env) {
         const includeHidden = url.searchParams.get('includeHidden') === 'true';
         const stmt = db.prepare("SELECT * FROM projects WHERE visibility = 1 OR ? ORDER BY order_number ASC, s_no DESC").bind(includeHidden);
         const { results } = await stmt.all();
-        return jsonResponse(results, 200, env);
+        return jsonResponse(results);
     }
 
     // POST /api/projects
@@ -72,7 +72,7 @@ async function handleApiRequest(url, request, env) {
         const result = await db.prepare(
             "INSERT INTO projects (name, long_description, images, github_link, technologies, category_name, short_description, circuit_diagram_link, video_link, order_number, visibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         ).bind(p.name, p.long_description, p.images, p.github_link, p.technologies, p.category_name, p.short_description, p.circuit_diagram_link, p.video_link, p.order_number, p.visibility).run();
-        return jsonResponse(result, 201, env);
+        return jsonResponse(result, 201);
     }
     
     // Handle routes with an ID, like /api/projects/123
@@ -87,47 +87,51 @@ async function handleApiRequest(url, request, env) {
                 const result = await db.prepare(
                     "UPDATE projects SET name=?, long_description=?, images=?, github_link=?, technologies=?, category_name=?, circuit_diagram_link=?, order_number=?, visibility=? WHERE s_no = ?"
                 ).bind(body.name, body.long_description, body.images, body.github_link, body.technologies, body.category_name, body.circuit_diagram_link, body.order_number, body.visibility, id).run();
-                return jsonResponse(result, 200, env);
+                return jsonResponse(result);
             }
              if (resourceType === 'categories') {
                 const result = await db.prepare("UPDATE categories SET category_name = ? WHERE s_no = ?").bind(body.name, id).run();
-                return jsonResponse(result, 200, env);
+                return jsonResponse(result);
             }
         }
         
         if (request.method === 'DELETE') {
             await db.prepare(`DELETE FROM ${resourceType} WHERE s_no = ?`).bind(id).run();
-            // For DELETE, we return a response with no body, but still need CORS headers
-            return new Response(null, { status: 204, headers: getCorsHeaders(env) });
+            return new Response(null, { status: 204, headers: getCorsHeaders() });
         }
     }
 
-    return errorResponse('Route not found', 404, env);
+    return errorResponse('Route not found', 404);
 }
 
 
 // --- HELPER FUNCTIONS ---
 
-function getCorsHeaders(env) {
+function getCorsHeaders() {
     return {
-        'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*',
+        // Allows requests from any origin. For production, you might want to restrict this
+        // to your specific domain, e.g., 'https://your-admin-page.pages.dev'
+        'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 }
 
-function handleOptions(request, env) {
-    return new Response(null, { headers: getCorsHeaders(env) });
+function handleOptions(request) {
+    // No 'env' parameter needed anymore
+    return new Response(null, { headers: getCorsHeaders() });
 }
 
-function jsonResponse(data, status = 200, env) {
-    const headers = getCorsHeaders(env);
+function jsonResponse(data, status = 200) {
+    // No 'env' parameter needed anymore
+    const headers = getCorsHeaders();
     headers['Content-Type'] = 'application/json';
     return new Response(JSON.stringify(data), { status, headers });
 }
 
-function errorResponse(message, status = 400, env) {
-    const headers = getCorsHeaders(env);
+function errorResponse(message, status = 400) {
+    // No 'env' parameter needed anymore
+    const headers = getCorsHeaders();
     headers['Content-Type'] = 'application/json';
     return new Response(JSON.stringify({ error: message }), { status, headers });
 }

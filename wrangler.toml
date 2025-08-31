@@ -1,0 +1,29 @@
+# The name of your worker. This will be part of its URL.
+name = "portfoliodb"
+
+# The entry point for your worker's code. Using a `src` directory is a good practice.
+main = "src/worker.js"
+
+# Ensures your worker runs on a stable version of the Workers runtime.
+compatibility_date = "2024-03-01"
+
+# This section makes environment variables from your .env file available to the worker.
+[vars]
+# Binds the SECRET_KEY from the .env file.
+SECRET_KEY = "${SECRET_KEY}"
+# Binds the ALLOWED_ORIGIN for CORS from the .env file.
+ALLOWED_ORIGIN = "${ALLOWED_ORIGIN}"
+
+# ---------------------------------------------------------------------------
+# D1 DATABASE BINDING
+# This section connects your D1 database to the worker.
+# ---------------------------------------------------------------------------
+[[d1_databases]]
+# This is the variable name you use in your worker code (e.g., env.DB).
+binding = "DB"
+
+# This is the name of your actual database in the Cloudflare dashboard.
+database_name = "portfolio_db"
+
+# The unique ID of your database.
+database_id = "c2e29adf-4f07-45f6-b078-3ee80ad0e55b"
